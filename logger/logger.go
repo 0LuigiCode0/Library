@@ -47,7 +47,7 @@ type level struct {
 }
 
 //InitLogger иницилезирует логгер
-func InitLogger() *Logger {
+func InitLogger(pathFile string) *Logger {
 	Log := Logger{
 		logs: make(map[string]*level),
 	}
@@ -92,15 +92,17 @@ func InitLogger() *Logger {
 	Log.logs["fatal"] = logF
 	Log.logs["serv"] = logS
 
-	outFile, err := os.OpenFile("log.txt", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0755)
-	if err != nil {
-		Log.Info("Log canot open")
-	} else {
-		logI.file = outFile
-		logW.file = outFile
-		logE.file = outFile
-		logF.file = outFile
-		logS.file = outFile
+	if pathFile != "" {
+		outFile, err := os.OpenFile(pathFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0755)
+		if err != nil {
+			Log.Info("Log canot open")
+		} else {
+			logI.file = outFile
+			logW.file = outFile
+			logE.file = outFile
+			logF.file = outFile
+			logS.file = outFile
+		}
 	}
 
 	return &Log
@@ -172,12 +174,14 @@ func (lv *level) log(format string, args ...interface{}) {
 		}
 	}
 	formatlevel := lv.parser(lv.format)
-	//	formatFile := lv.parser(lv.formatFile)
 	fmt.Printf(formatlevel+"\n", message)
-	// _, err := lv.file.WriteString(fmt.Sprintf(formatFile+"\n", message))
-	// if err != nil {
-	// 	fmt.Printf("\n"+formatlevel, "Log writer failed")
-	// }
+	if lv.file != nil {
+		formatFile := lv.parser(lv.formatFile)
+		_, err := lv.file.WriteString(fmt.Sprintf(formatFile+"\n", message))
+		if err != nil {
+			fmt.Printf("\n"+formatlevel, "Log writer failed")
+		}
+	}
 }
 
 //SetLevelFormatConsole изменение формата вывода в консоль
