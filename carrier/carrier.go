@@ -29,7 +29,19 @@ func Transfer(src, dst interface{}) error {
 
 	for i, v1 := range mapOut {
 		if v2, ok := mapIn[i]; ok {
+			if v1.Elem().IsZero() || v2.Elem().IsZero() {
+				return fmt.Errorf("Value is zero")
+			}
+
+			if v1.Elem().Type().String()[0] == '*' {
+				v1 = v1.Elem()
+			}
+			if v2.Elem().Type().String()[0] == '*' {
+				v2 = v2.Elem()
+			}
+
 			if v1.Elem().Type().String() == v2.Elem().Type().String() {
+				fmt.Println(v1.Elem(), v2.Elem())
 				v1.Elem().Set(v2.Elem())
 			} else {
 				return fmt.Errorf("Types are not equal")
