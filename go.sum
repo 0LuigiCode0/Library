@@ -1,2 +1,7 @@
 github.com/000mrLuigi000/Library v0.0.0-20201125194017-4091246bfb0b h1:kc3itFk2qTOIhCl6C2qgpgEL3LNcXLF7nSKfsicfpYY=
 github.com/000mrLuigi000/Library v0.0.0-20201125194017-4091246bfb0b/go.mod h1:/DAPwAVl23er9IZoGrGfm0/njsy+m8P7nYknaENAYCY=
+github.com/0LuigiCode0/Library v0.0.0-20210208104925-1df71302a2af h1:8XSfA8i6z/Iu4zJoupx2U+IKVR3SjanU4KYHzXNI8A0=
+github.com/boombuler/barcode v1.0.1 h1:NDBbPmhS+EqABEs5Kg3n/5ZNjy73Pz7SIV+KCeqyXcs=
+github.com/boombuler/barcode v1.0.1/go.mod h1:paBWMcWSl3LHKBqUq+rly7CNSldXjb2rDl3JlRe0mD8=
+github.com/g3n/engine v0.1.0 h1:e+HR/X4awny6sVx0CikNG/KyH17nXNR3CIyqDJaAI30=
+github.com/g3n/engine v0.1.0/go.mod h1:gH3V0Zq2oM9UlI9Y+HGVkAGaUsrjHMC8d0Eiz2URXyI=

@@ -1,33 +1,20 @@
 package goqr
 
 import (
-	"fmt"
+	"errors"
 	"image"
 	"image/color"
+	"image/color/palette"
+	"image/draw"
+	"image/gif"
+	"image/jpeg"
 	"image/png"
+	"io/ioutil"
+	"math"
+	"net/http"
 	"os"
+	"strings"
 )
-
-var code = "https://x-cluster.com&key=ijgriufhwunecb23fdfgsfgrgfrgertgerherg"
-
-var ascii = []int{
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	36, 0, 0, 0, 37, 38, 0, 0, 0, 0, 39, 40, 0, 41, 42, 43,
-	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 44, 0, 0, 0, 0, 0,
-	0, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
-	25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 0, 0, 0, 0, 0,
-	0, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
-	25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 0, 0, 0, 0, 0,
-	// 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	// 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	// 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	// 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	// 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	// 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	// 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	// 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-}
 
 var maxDataM = []int{
 	128, 224, 352, 512, 688, 864, 992, 1232, 1456, 1728,
@@ -67,6 +54,11 @@ var byteCorectH = []int{
 	30, 24, 30, 30, 30, 30, 30, 30, 30, 30,
 	30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
 }
+
+const (
+	levelCorrectM = 0x5e7c
+	levelCorrectH = 0x1ce7
+)
 
 var polinom = map[int][]int{
 	7:  {87, 229, 146, 149, 238, 102, 21},
@@ -130,196 +122,344 @@ var qrBlocks = []int{
 	149, 153, 157, 161, 165, 169, 173, 177,
 }
 
-//QRGenerate генерирует qr
-func QRGenerate() {
-	fmt.Println(code)
+var codeVersion = [][]int{
+	{}, {}, {}, {}, {}, {},
+	{0x2, 0x1e, 0x26},
+	{0x11, 0x1c, 0x38},
+	{0x37, 0x18, 0x4},
+	// {0x,0x,0x},	101001 111110 000000
+	// {0x,0x,0x},	001111 111010 111100
+	// {0x,0x,0x},	001101 100100 011010
+	// {0x,0x,0x},	101011 100000 100110
+	// {0x,0x,0x},	110101 000110 100010
+	// {0x,0x,0x},	010011 000010 011110
+	// {0x,0x,0x},	011100 010001 011100
+	// {0x,0x,0x},	111010 010101 100000
+	// {0x,0x,0x},	100100 110011 100100
+	// {0x,0x,0x},	000010 110111 011000
+	// {0x,0x,0x},	000000 101001 111110
+	// {0x,0x,0x},	100110 101101 000010
+	// {0x,0x,0x},	111000 001011 000110
+	// {0x,0x,0x},	011110 001111 111010
+	// {0x,0x,0x},	001101 001101 100100
+	// {0x,0x,0x},	101011 001001 011000
+	// {0x,0x,0x},	110101 101111 011100
+	// {0x,0x,0x},	010011 101011 100000
+	// {0x,0x,0x},	010001 110101 000110
+	// {0x,0x,0x},	110111 110001 111010
+	// {0x,0x,0x},	101001 010111 111110
+	// {0x,0x,0x},	001111 010011 000010
+	// {0x,0x,0x},	101000 011000 101101
+	// {0x,0x,0x},	001110 011100 010001
+	// {0x,0x,0x},	010000 111010 010101
+	// {0x,0x,0x},	110110 111110 101001
+	// {0x,0x,0x},	110100 100000 001111
+	// {0x,0x,0x},	010010 100100 110011
+	// {0x,0x,0x},	001100 000010 110111
+	// {0x,0x,0x},	101010 000110 001011
+	// {0x,0x,0x},	111001 000100 010101
+}
 
-	//Расчет длины массива данных
-	length := 0
-	for l, i := len(code), 0; i < l; i++ {
-		if l > i+1 {
-			length += 11
-			i++
-		} else {
-			length += 6
+var coordAnchor = [][][]int{
+	{},
+	{{18, 18}},
+	{{22, 22}},
+	{{26, 26}},
+	{{30, 30}},
+	{{34, 34}},
+	{{6, 22}, {22, 6}, {22, 22}, {22, 38}, {38, 22}, {38, 38}},
+	{{6, 24}, {24, 6}, {24, 24}, {24, 42}, {42, 24}, {42, 42}},
+	{{6, 26}, {26, 6}, {26, 26}, {26, 46}, {46, 26}, {46, 46}},
+}
+
+const (
+	search0  byte = 2
+	search1  byte = 3
+	sync0    byte = 4
+	sync1    byte = 5
+	mask0    byte = 6
+	mask1    byte = 7
+	version0 byte = 8
+	version1 byte = 9
+	anchor0  byte = 10
+	anchor1  byte = 11
+)
+
+//QRGenerate генерирует qr
+func QRGenerate(content, imagePath, qrPath string) error {
+	if qrPath == "" {
+		return errors.New("qrPath is nil")
+	}
+
+	maxData := &maxDataM
+	blocks := &blocksM
+	byteCorect := &byteCorectM
+	levelCorrect := levelCorrectM
+	var gachi interface{}
+	var maxSizeGachi int
+
+	if imagePath != "" {
+		file, err := os.OpenFile(imagePath, os.O_RDONLY, 0777)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		buf, _ := ioutil.ReadFile(imagePath)
+		switch http.DetectContentType(buf) {
+		case "image/jpeg":
+			gachi, err = jpeg.Decode(file)
+			if err != nil {
+				return err
+			}
+			if !strings.HasSuffix(qrPath, ".png") {
+				return errors.New("QR only type png")
+			}
+		case "image/png":
+			gachi, err = png.Decode(file)
+			if err != nil {
+				return err
+			}
+			if !strings.HasSuffix(qrPath, ".png") {
+				return errors.New("QR only type png")
+			}
+		case "image/gif":
+			gachi, err = gif.DecodeAll(file)
+			if err != nil {
+				return err
+			}
+			if !strings.HasSuffix(qrPath, ".gif") {
+				return errors.New("If image have type gif then qr only type gif")
+			}
+		default:
+			return errors.New("Image wrong type")
+		}
+
+		maxData = &maxDataH
+		blocks = &blocksH
+		byteCorect = &byteCorectH
+		levelCorrect = levelCorrectH
+	} else {
+		if !strings.HasSuffix(qrPath, ".png") {
+			return errors.New("QR only type png")
 		}
 	}
 
 	//Перевод строки в двоичную последовательность
-	j := 0
-	data := make([]int, length)
-	for l, i := len(code), 0; i < l; i++ {
-		if l > i+1 {
-			mask := 1024
-			x := int(ascii[code[i]])*45 + int(ascii[code[i+1]])
-			for k := 0; k < 11; k++ {
-				if x&mask != 0 {
-					data[j] = 1
-				}
-				mask >>= 1
-				j++
-			}
-			i++
-		} else {
-			mask := 32
-			x := int(ascii[code[i]])
-			for k := 0; k < 6; k++ {
-				if x&mask != 0 {
-					data[j] = 1
-				}
-				mask >>= 1
-				j++
-			}
+	length, data := utfToBit(content)
+	//Выбор версии QR кода и длины системных данных
+	version, lenSystemData, err := howToVersion(length, maxData)
+	if err != nil {
+		return err
+	}
+	maxSizeGachi = int(math.Sqrt(float64((qrBlocks[version]*qrBlocks[version])-300) * 0.25))
+	if maxSizeGachi%2 == 0 {
+		maxSizeGachi--
+	}
+
+	//Запись системных данных в начало массива
+	data = addServicesData(content, version, lenSystemData, maxData, data)
+	//Дозаполнение пустышками до необходимой длины
+	addVoidData(lenSystemData, length, version, maxData, &data)
+	//Пстроение блоков
+	block, byteBlock, size := buildBlock(version, maxData, blocks, &data)
+	//Создание байт коррекции
+	countByteCorect, corectBlock, length := buildCorectBlock(version, block, length, byteCorect, &byteBlock)
+	//Групирование блоков данных
+	data = groupData(length, size, countByteCorect, &byteBlock, &corectBlock)
+
+	//Рисование
+	size = qrBlocks[version]
+	dataImg := make([][]byte, size)
+	for i := range dataImg {
+		dataImg[i] = make([]byte, size)
+	}
+	searchPoint(&dataImg)
+	syncLine(&dataImg)
+	maskInfo(&dataImg, levelCorrect)
+	codeVer(&dataImg, version)
+	anchor(&dataImg, version)
+	write(&dataImg, &data)
+
+	//Вывод изображения
+	file1, err := os.OpenFile(qrPath, os.O_CREATE|os.O_RDWR, 0777)
+	if err != nil {
+		return err
+	}
+
+	if img2, ok := gachi.(image.Image); ok {
+		if err := png.Encode(file1, paintImage(version, size, maxSizeGachi, &dataImg, img2)); err != nil {
+			return err
+		}
+	} else if img2, ok := gachi.(*gif.GIF); ok {
+		if err := gif.EncodeAll(file1, paintGIF(version, size, maxSizeGachi, &dataImg, img2)); err != nil {
+			return err
+		}
+	} else {
+		if err := png.Encode(file1, paintImage(version, size, maxSizeGachi, &dataImg, nil)); err != nil {
+			return err
 		}
 	}
 
-	//Выбор версии QR кода и длины системных данных
-	var version int
-	var lenSystemData int
+	return nil
+}
+
+//Перевод строки в двоичную последовательность
+func utfToBit(content string) (length int, dataBit []int) {
+	count := 0
+	length = len(content) * 8
+	dataBit = make([]int, length)
+	for l, i := len(content), 0; i < l; i++ {
+		mask := 0x80
+		a := int(content[i])
+		for mask > 0 {
+			if mask&a != 0 {
+				dataBit[count] = 1
+			}
+			mask >>= 1
+			count++
+		}
+	}
+	return
+}
+
+//Выбор версии QR кода и длины системных данных
+func howToVersion(length int, maxData *[]int) (version int, lenSystemData int, err error) {
 	for i := 0; i < 40; i++ {
-		max := maxDataH[i]
+		max := (*maxData)[i]
 		if length > max {
 			continue
 		}
 		switch {
 		case i < 9:
-			if length+13 > max {
+			if length+12 > max {
 				i++
 				if i == 9 {
 					version = i
-					lenSystemData = 15
+					lenSystemData = 20
 					break
 				}
 			}
 			version = i
-			lenSystemData = 13
+			lenSystemData = 12
 		case i >= 9 && i < 26:
-			if length+15 > max {
+			if length+20 > max {
 				i++
 				if i == 26 {
 					version = i
-					lenSystemData = 17
+					lenSystemData = 20
 					break
 				}
 			}
 			version = i
-			lenSystemData = 15
+			lenSystemData = 20
 		case i >= 26 && i < 40:
-			if length+17 > max {
+			if length+20 > max {
 				i++
 				if i == 40 {
-					fmt.Println("Data is oversize")
+					err = errors.New("Data's oversize")
 					break
 				}
 			}
 			version = i
-			lenSystemData = 17
+			lenSystemData = 20
 		}
 		break
 	}
+	return
+}
 
-	//Запись системных данных в начало массива
-	newData := make([]int, maxDataH[version])
-	newData[2] = 1
+//Запись системных данных в начало массива
+func addServicesData(content string, version int, lenSystemData int, maxData *[]int, dataBit []int) []int {
+	newData := make([]int, (*maxData)[version])
+	newData[1] = 1
 	mask := 1 << (lenSystemData - 4 - 1)
-	countSymbol := len(code)
+	countSymbol := len(content)
 	for i := 4; i < lenSystemData; i++ {
 		if countSymbol&mask != 0 {
 			newData[i] = 1
 		}
 		mask >>= 1
 	}
-	copy(newData[lenSystemData:], data)
+	copy(newData[lenSystemData:], dataBit)
+	return newData
+}
 
-	//Дозаполнение пустышками до необходимой длины
+//Дозаполнение пустышками до необходимой длины
+func addVoidData(lenSystemData int, length int, version int, maxData, newData *[]int) {
 	minMultiplyLenData := lenSystemData + length
 	for minMultiplyLenData%8 != 0 {
 		minMultiplyLenData++
 	}
 	f := true
-	for i := minMultiplyLenData; i < maxDataH[version]; {
+	for i := minMultiplyLenData; i < (*maxData)[version]; {
 		switch f {
 		case true:
-			newData[i] = 1
-			newData[i+1] = 1
-			newData[i+2] = 1
-			newData[i+4] = 1
-			newData[i+5] = 1
+			(*newData)[i] = 1
+			(*newData)[i+1] = 1
+			(*newData)[i+2] = 1
+			(*newData)[i+4] = 1
+			(*newData)[i+5] = 1
 			i += 8
 			f = false
 		case false:
-			newData[i+3] = 1
-			newData[i+7] = 1
+			(*newData)[i+3] = 1
+			(*newData)[i+7] = 1
 			i += 8
 			f = true
 		}
 	}
+}
 
-	//Пстроение блоков
-	fullLength := 0
-	block := blocksH[version]
-	byteData := make([][]int, block)
-	maxByte := maxDataH[version] / 8
-	size, resid := 0, 0
-	if block != 1 {
-		k := 0
-		size, resid = maxByte/block, maxByte%block
-		for i := 0; i < block; i++ {
-			if resid >= block-i {
-				byteData[i] = make([]int, size+1)
-				fullLength += size + 1
-			} else {
-				byteData[i] = make([]int, size)
-				fullLength += size
-			}
-			for j := 0; j < len(byteData[i]); j++ {
-				x := newData[k] * (2 << 6)
-				x += newData[k+1] * (2 << 5)
-				x += newData[k+2] * (2 << 4)
-				x += newData[k+3] * (2 << 3)
-				x += newData[k+4] * (2 << 2)
-				x += newData[k+5] * (2 << 1)
-				x += newData[k+6] * (2 << 0)
-				x += newData[k+7] * (1)
-				byteData[i][j] = x
-				k += 8
-			}
+//Пстроение блоков
+func buildBlock(version int, maxData, blocks, newData *[]int) (block int, byteBlock [][]int, size int) {
+	length := 0
+	count := 0
+	block = (*blocks)[version]
+	byteBlock = make([][]int, block)
+	maxByte := (*maxData)[version] / 8
+	size, resid := maxByte/block, maxByte%block
+	for i := 0; i < block; i++ {
+		if resid >= block-i {
+			byteBlock[i] = make([]int, size+1)
+			length += size + 1
+		} else {
+			byteBlock[i] = make([]int, size)
+			length += size
 		}
-	} else {
-		count := maxByte
-		byteData[0] = make([]int, count)
-		fullLength += count
-		for i := 0; i < count; i++ {
-			x := newData[i*8] * (2 << 6)
-			x += newData[i*8+1] * (2 << 5)
-			x += newData[i*8+2] * (2 << 4)
-			x += newData[i*8+3] * (2 << 3)
-			x += newData[i*8+4] * (2 << 2)
-			x += newData[i*8+5] * (2 << 1)
-			x += newData[i*8+6] * (2 << 0)
-			x += newData[i*8+7] * (1)
-			byteData[0][i] = x
+		for j := 0; j < len(byteBlock[i]); j++ {
+			x := (*newData)[count] * (2 << 6)
+			x += (*newData)[count+1] * (2 << 5)
+			x += (*newData)[count+2] * (2 << 4)
+			x += (*newData)[count+3] * (2 << 3)
+			x += (*newData)[count+4] * (2 << 2)
+			x += (*newData)[count+5] * (2 << 1)
+			x += (*newData)[count+6] * (2 << 0)
+			x += (*newData)[count+7] * (1)
+			byteBlock[i][j] = x
+			count += 8
 		}
 	}
+	return
+}
 
-	//Создание байт коррекции
-	countByteCorect := byteCorectH[version]
+//Создание байт коррекции
+func buildCorectBlock(version int, block int, length int, byteCorect *[]int, byteBlock *[][]int) (int, [][]int, int) {
+	countByteCorect := (*byteCorect)[version]
 	polinomCorect := polinom[countByteCorect]
-	lenPolinim := len(polinomCorect)
-	corectData := make([][]int, block)
-	for i := range corectData {
-		lenBlock := len(byteData[i])
-		if lenBlock > lenPolinim {
-			corectData[i] = make([]int, lenBlock)
-			fullLength += lenBlock
+	corectBlock := make([][]int, block)
+	for i := range corectBlock {
+		if len((*byteBlock)[i]) > countByteCorect {
+			corectBlock[i] = make([]int, len((*byteBlock)[i]))
+			length += len((*byteBlock)[i])
 		} else {
-			corectData[i] = make([]int, lenPolinim)
-			fullLength += lenPolinim
+			corectBlock[i] = make([]int, countByteCorect)
+			length += countByteCorect
 		}
-		copy(corectData[i], byteData[i])
-		for range byteData[i] {
-			x := corectData[i][0]
-			copy(corectData[i], corectData[i][1:])
+		copy(corectBlock[i], (*byteBlock)[i])
+		for range (*byteBlock)[i] {
+			x := corectBlock[i][0]
+			copy(corectBlock[i], corectBlock[i][1:])
+			corectBlock[i][len(corectBlock[i])-1] = 0
 			if x == 0 {
 				continue
 			}
@@ -329,143 +469,301 @@ func QRGenerate() {
 				if y > 254 {
 					y %= 255
 				}
-				corectData[i][j] ^= fieldGalua[y]
+				corectBlock[i][j] ^= fieldGalua[y]
 			}
 		}
 	}
-
-	//Групирование блоков данных
-	i := 0
-	data = make([]int, fullLength)
-	for j := 0; j < size+1; j++ {
-		for _, v := range byteData {
-			if len(v) > j {
-				data[i] = v[j]
-				i++
-			}
-		}
-	}
-	for j := 0; true; {
-		f := true
-		for _, v := range corectData {
-			if len(v) > j {
-				f = false
-				data[i] = v[j]
-				i++
-			}
-		}
-		j++
-		if f {
-			break
-		}
-	}
-
-	fmt.Println(version)
-	fmt.Println(newData)
-	fmt.Println(byteData)
-	fmt.Println(corectData)
-	fmt.Println(data)
-
-	//Вывод изображения
-	file, err := os.OpenFile("qrtest.png", os.O_CREATE|os.O_RDWR, 0777)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	size = qrBlocks[version] + 4
-	rect := image.Rect(0, 0, size, size)
-	img := image.NewGray(rect)
-
-	//Рамки
-	border(img, size)
-	//Поисковые маячки
-	searchPoint(img, 4, 4)
-	searchPoint(img, 4, size-4-7)
-	searchPoint(img, size-4-7, 4)
-	//Полоса синханизации
-	syncLine(img, 4+6, size-4-6)
-	//Информация о маске
-	maskInfo(img, 4, 4, size, 5769)
-
-	if err := png.Encode(file, img); err != nil {
-		fmt.Println(err)
-		return
-	}
+	return countByteCorect, corectBlock, length
 }
 
-//Рамки
-func border(img *image.Gray, size int) {
-	for x := 0; x < size; x++ {
-		for y := 0; y < 4; y++ {
-			img.Set(x, y, color.White)
-			img.Set(y, x, color.White)
-		}
-		for y := size - 4; y < size; y++ {
-			img.Set(x, y, color.White)
-			img.Set(y, x, color.White)
+//Групирование блоков данных
+func groupData(length, size, countByteCorect int, byteBlock, corectBlock *[][]int) (data []int) {
+	count := 0
+	data = make([]int, length)
+	for j := 0; j < size+1; j++ {
+		for _, v := range *byteBlock {
+			if len(v) > j {
+				data[count] = v[j]
+				count++
+			}
 		}
 	}
+	for j := 0; j < countByteCorect; j++ {
+		for _, v := range *corectBlock {
+			if v[j] != 0 {
+				data[count] = v[j]
+				count++
+			}
+		}
+	}
+	return
 }
 
 //Поисковые маячки
-func searchPoint(img *image.Gray, x, y int) {
-	for i := 1; i < 6; i++ {
-		img.Set(x+i, y+1, color.White)
-		img.Set(y+1, x+i, color.White)
-		img.Set(x+i, y+5, color.White)
-		img.Set(y+5, x+i, color.White)
-	}
-	for i := -1; i < 8; i++ {
-		img.Set(x+i, y-1, color.White)
-		img.Set(y-1, x+i, color.White)
-		img.Set(x+i, y+7, color.White)
-		img.Set(y+7, x+i, color.White)
+func searchPoint(img *[][]byte) {
+	posx := []int{0, 0, len(*img) - 7}
+	posy := []int{0, len(*img) - 7, 0}
+	for k := 0; k < 3; k++ {
+		x := search1
+		for i := 0; i < 3; i++ {
+			for j := i; j < 7-i; j++ {
+				(*img)[i+posy[k]][j+posx[k]] = x
+				(*img)[j+posy[k]][i+posx[k]] = x
+				(*img)[6-i+posy[k]][j+posx[k]] = x
+				(*img)[j+posy[k]][6-i+posx[k]] = x
+			}
+			(*img)[6-i+posy[k]][6-i+posx[k]] = x
+			if x == search0 {
+				x = search1
+			} else {
+				x = search0
+			}
+		}
+		(*img)[posy[k]+3][posx[k]+3] = search1
+		for i := -1; i < 8; i++ {
+			if posx[k]+i > -1 && posx[k]+i < len(*img) {
+				if posy[k]+7 < len(*img) {
+					(*img)[posy[k]+7][posx[k]+i] = x
+				} else if posy[k]-1 > -1 {
+					(*img)[posy[k]-1][posx[k]+i] = x
+				}
+			}
+			if posy[k]+i > -1 && posy[k]+i < len(*img) {
+				if posx[k]+7 < len(*img) {
+					(*img)[posy[k]+i][posx[k]+7] = x
+				} else if posx[k]-1 > -1 {
+					(*img)[posy[k]+i][posx[k]-1] = x
+				}
+			}
+		}
 	}
 }
 
 //Полосы синхранизации
-func syncLine(img *image.Gray, start, end int) {
+func syncLine(img *[][]byte) {
 	f := true
-	for i := start; i < end; i++ {
+	for i := 8; i < len(*img)-8; i++ {
 		if f {
+			(*img)[6][i] = sync1
+			(*img)[i][6] = sync1
 			f = false
 		} else {
-			img.Set(start, i, color.White)
-			img.Set(i, start, color.White)
+			(*img)[6][i] = sync0
+			(*img)[i][6] = sync0
 			f = true
 		}
 	}
 }
 
 //Информация о версии и маске
-func maskInfo(img *image.Gray, x, y, size int, code int) {
-	mask := 16384
-	for i, f := 0, 0; i < 15; i, f = i+1, f+1 {
-		if i > 7 {
-			if code&mask == 0 {
-				if f == 10 {
-					f++
-				}
-				img.Set(x+8, y+16-f, color.White)
-				img.Set(size-x-15+i, y+8, color.White)
-			}
-			mask >>= 1
+func maskInfo(img *[][]byte, code int) {
+	var a, b int
+	mask := 0x4000
+	for i := 0; i < 15; i++ {
+		if i > 6 {
+			a = 8
+			b = len(*img) - 15 + i
+
 		} else {
-			if code&mask == 0 {
-				if f == 6 {
-					f++
-				}
-				img.Set(x+f, y+8, color.White)
-				if i == 7 {
-					img.Set(size-x-16+i, y+8, color.White)
-				} else {
-					img.Set(x+8, size-y-1-i, color.White)
-				}
+			a = len(*img) - 1 - i
+			b = 8
+		}
+		if mask&code != 0 {
+			(*img)[a][b] = mask1
+		} else {
+			(*img)[a][b] = mask0
+		}
+		mask >>= 1
+	}
+	(*img)[len(*img)-8][8] = mask1
+
+	mask = 0x4000
+	for i := 0; i < 17; i++ {
+		if i > 8 {
+			a = 16 - i
+			b = 8
+		} else {
+			a = 8
+			b = i
+		}
+		if (*img)[a][b] != sync1 {
+			if mask&code != 0 {
+				(*img)[a][b] = mask1
+			} else {
+				(*img)[a][b] = mask0
+			}
+		} else {
+			continue
+		}
+		mask >>= 1
+	}
+}
+
+func codeVer(img *[][]byte, version int) {
+	size := len(*img) - 1
+	vers := codeVersion[version]
+	for i := range vers {
+		mask := 0x20
+		for j := 0; mask > 0; j++ {
+			if mask&vers[i] == 0 {
+				(*img)[size-10+i][j] = version0
+				(*img)[j][size-10+i] = version0
+			} else {
+				(*img)[size-10+i][j] = version1
+				(*img)[j][size-10+i] = version1
 			}
 			mask >>= 1
 		}
 	}
-	img.Set(x+8, size-y-8, color.Black)
-	//img.Set(x+i, y+8, color.White)
-	//img.Set(i, start, color.White)
+}
+
+func anchor(img *[][]byte, version int) {
+	coordLisn := coordAnchor[version]
+	for i := range coordLisn {
+		y, x := coordLisn[i][0]-2, coordLisn[i][1]-2
+		k := anchor1
+		for d := 0; d < 2; d++ {
+			for j := d; j < 5-d; j++ {
+				(*img)[d+y][j+x] = k
+				(*img)[j+y][d+x] = k
+				(*img)[4-d+y][j+x] = k
+				(*img)[j+y][4-d+x] = k
+			}
+			if k == anchor0 {
+				k = anchor1
+			} else {
+				k = anchor0
+			}
+		}
+		(*img)[y+2][x+2] = anchor1
+	}
+}
+
+func write(img *[][]byte, data *[]int) {
+	var i int
+	var direct bool
+	bufBit := make([]byte, len(*data)*8)
+	for _, v := range *data {
+		mask := 0x80
+		for mask > 0 {
+			if mask&v != 0 {
+				bufBit[i] = 1
+			}
+			i++
+			mask >>= 1
+		}
+	}
+	i = 0
+
+	for x := len(*img) - 1; x > -1; {
+		if x != 6 {
+			if direct {
+				for y := 0; y < len(*img); y++ {
+					for k := 0; k < 2; k++ {
+						if (*img)[y][x-k] == 0 {
+							var a byte
+							if len(bufBit) > i {
+								a = bufBit[i]
+								i++
+							}
+							if (x-k)%3 == 0 {
+								if a == 0 {
+									(*img)[y][x-k] = 1
+								} else {
+									(*img)[y][x-k] = 0
+								}
+							} else {
+								(*img)[y][x-k] = a
+							}
+
+						}
+					}
+				}
+				direct = false
+			} else {
+				for y := len(*img) - 1; y > -1; y-- {
+					for k := 0; k < 2; k++ {
+						if (*img)[y][x-k] == 0 {
+							var a byte
+							if len(bufBit) > i {
+								a = bufBit[i]
+								i++
+							}
+							if (x-k)%3 == 0 {
+								if a == 0 {
+									(*img)[y][x-k] = 1
+								} else {
+									(*img)[y][x-k] = 0
+								}
+							} else {
+								(*img)[y][x-k] = a
+							}
+						}
+					}
+				}
+				direct = true
+			}
+			x -= 2
+		} else {
+			x--
+		}
+	}
+}
+
+func paintImage(version, size, maxSizeImg int, dataImg *[][]byte, image2 image.Image) *image.CMYK {
+	var sizeImg, shift int
+	coeff := 1
+	if image2 != nil {
+		coeff = (image2.Bounds().Dx() / maxSizeImg) + 1
+		size = coeff * (size + 8)
+		sizeImg = image2.Bounds().Dx() - 1
+		maxSizeImg = maxSizeImg * coeff
+		shift = ((maxSizeImg - sizeImg) / 2) + 1
+	} else {
+		size = size + 8
+	}
+
+	rect := image.Rect(0, 0, size, size)
+	image1 := image.NewCMYK(rect)
+
+	x0 := (size / 2) - (maxSizeImg / 2)
+	y0 := (size / 2) - (maxSizeImg / 2)
+
+	for y := 0; y < size; y++ {
+		for x := 0; x < size; x++ {
+			if y > coeff*4-1 && y < size-(coeff*4) && x > coeff*4-1 && x < size-(coeff*4) {
+				if (*dataImg)[(y-(coeff*4))/coeff][(x-(coeff*4))/coeff]%2 == 1 {
+					image1.Set(x, y, color.Black)
+				}
+			}
+		}
+	}
+	if image2 != nil {
+		for y := 0; y < maxSizeImg; y++ {
+			for x := 0; x < maxSizeImg; x++ {
+				if x > maxSizeImg-shift || x < shift || y > maxSizeImg-shift || y < shift {
+					image1.Set(x0+x, y0+y, color.White)
+				} else {
+					image1.Set(x0+x, y0+y, image2.At(x-shift, y-shift))
+				}
+			}
+		}
+	}
+	return image1
+}
+
+func paintGIF(version, size, maxSizeImg int, dataImg *[][]byte, image2 *gif.GIF) *gif.GIF {
+	image1 := &gif.GIF{
+		Delay:     image2.Delay,
+		LoopCount: image2.LoopCount,
+	}
+	for _, img := range image2.Image {
+		frame := paintImage(version, size, maxSizeImg, dataImg, img)
+		pall := image.NewPaletted(frame.Rect, palette.Plan9)
+		draw.FloydSteinberg.Draw(pall, frame.Rect, frame, image.ZP)
+
+		image1.Image = append(image1.Image, pall)
+	}
+
+	return image1
 }
