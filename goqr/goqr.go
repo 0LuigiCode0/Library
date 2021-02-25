@@ -741,7 +741,7 @@ func paintImage(version, size, maxSizeImg int, dataImg *[][]byte, image2 image.I
 	if image2 != nil {
 		for y := 0; y < maxSizeImg; y++ {
 			for x := 0; x < maxSizeImg; x++ {
-				if x > maxSizeImg-shift || x < shift || y > maxSizeImg-shift || y < shift {
+				if x > maxSizeImg-shift-1 || x < shift || y > maxSizeImg-shift-1 || y < shift {
 					image1.Set(x0+x, y0+y, color.White)
 				} else {
 					image1.Set(x0+x, y0+y, image2.At(x-shift, y-shift))
