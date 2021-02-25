@@ -716,8 +716,8 @@ func paintImage(version, size, maxSizeImg int, dataImg *[][]byte, image2 image.I
 	if image2 != nil {
 		coeff = (image2.Bounds().Dx() / maxSizeImg) + 1
 		size = coeff * (size + 8)
-		sizeImg = image2.Bounds().Dx()
-		maxSizeImg = maxSizeImg * coeff
+		sizeImg = image2.Bounds().Dx() - 1
+		maxSizeImg = maxSizeImg*coeff - 2
 		shift = ((maxSizeImg - sizeImg) / 2)
 	} else {
 		size = size + 8
