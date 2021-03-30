@@ -1,3 +1,3 @@
-module github.com/0LuigiCode0/library
+module library
 
 go 1.15
