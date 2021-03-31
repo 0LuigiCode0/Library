@@ -228,10 +228,10 @@ func QRGenerate(content, imagePath, qrPath string) error {
 				return err
 			}
 			if !strings.HasSuffix(qrPath, ".gif") {
-				return errors.New("If image have type gif then qr only type gif")
+				return errors.New("if image have type gif then qr only type gif")
 			}
 		default:
-			return errors.New("Image wrong type")
+			return errors.New("image wrong type")
 		}
 
 		maxData = &maxDataH
@@ -251,7 +251,7 @@ func QRGenerate(content, imagePath, qrPath string) error {
 	if err != nil {
 		return err
 	}
-	maxSizeGachi = int(math.Sqrt(float64((qrBlocks[version]*qrBlocks[version])-300) * 0.23))
+	maxSizeGachi = int(math.Sqrt(float64((qrBlocks[version]*qrBlocks[version])-240-(len(coordAnchor[version])*25)-(qrBlocks[version]*2)) * 0.21))
 	if maxSizeGachi%2 == 0 {
 		maxSizeGachi--
 	}
@@ -356,7 +356,7 @@ func howToVersion(length int, maxData *[]int) (version int, lenSystemData int, e
 			if length+20 > max {
 				i++
 				if i == 40 {
-					err = errors.New("Data's oversize")
+					err = errors.New("data's oversize")
 					break
 				}
 			}
