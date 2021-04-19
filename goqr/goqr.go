@@ -189,7 +189,7 @@ const (
 )
 
 //QRGenerate генерирует qr
-func QRGenerate(content, imagePath, qrPath string) error {
+func QRGenerate(content, imagePath, qrPath string, sizeImg float64) error {
 	if qrPath == "" {
 		return errors.New("qrPath is nil")
 	}
@@ -254,7 +254,7 @@ func QRGenerate(content, imagePath, qrPath string) error {
 	if err != nil {
 		return err
 	}
-	maxSizeGachi = int(math.Sqrt(float64((qrBlocks[version]*qrBlocks[version])-240-(len(coordAnchor[version])*25)-(qrBlocks[version]*2)) * 0.21))
+	maxSizeGachi = int(math.Sqrt(float64((qrBlocks[version]*qrBlocks[version])-240-(len(coordAnchor[version])*25)-(qrBlocks[version]*2)) * sizeImg))
 	if maxSizeGachi%2 == 0 {
 		maxSizeGachi--
 	}
