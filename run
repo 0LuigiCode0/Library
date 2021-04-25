@@ -1,8 +1,8 @@
 #!/bin/bash
 
-TAG_BACK=latest
-TAG_FRONT=latest
-TAG_ADMIN=latest
+export TAG_BACK=latest
+export TAG_FRONT=latest
+export TAG_ADMIN=latest
 
 cd ~/xcluster
 case $1 in
