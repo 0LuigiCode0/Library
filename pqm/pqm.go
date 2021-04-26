@@ -195,26 +195,26 @@ func scanInfo(title string, tx *sql.Tx) (*Table, error) {
 	}
 	res, err := tx.Query(`
 	select
-		c.Column_name,
+		c.column_name,
 		c.data_type,
-		case when c.Column_default is not null then c.Column_default else '' end,
+		case when c.column_default is not null then c.column_default else '' end,
 		case when c.character_maximum_length is not null then c.character_maximum_length else 0 end,
 		c.is_nullable,
 		case when kcu.constraint_name is not null then kcu.constraint_name else '' end,
 		case when tc.constraint_type is not null then tc.constraint_type else '' end,
-		case when ccu.Column_name is not null then ccu.Column_name else '' end,
+		case when ccu.column_name is not null then ccu.column_name else '' end,
 		case when ccu.table_name is not null then ccu.table_name else '' end
 	from
-		information_schema."Columns" c
-	left join information_schema.Key_Column_usage kcu on
-		kcu.Column_name = c.Column_name
-	left join information_schema.constraint_Column_usage ccu on
+		information_schema."columns" c
+	left join information_schema.key_column_usage kcu on
+		kcu.column_name = c.column_name
+	left join information_schema.constraint_column_usage ccu on
 		ccu.constraint_name = kcu.constraint_name
 	left join information_schema.table_constraints tc on
 		tc.constraint_name = ccu.constraint_name
 	where
 		c.table_name = $1
-		and c.Column_name <> 'id'
+		and c.column_name <> 'id'
 	`, title)
 	if err != nil {
 		return t, fmt.Errorf("table info not found: %v", err)
