@@ -83,9 +83,13 @@ func InitTable(db *sql.DB, table *Table) error {
 				deleteKey(&qry, table.Title, k)
 				addKey(&qry, table.Title, k, v)
 			}
+			delete(t.Keys, k)
 		} else {
 			addKey(&qry, table.Title, k, v)
 		}
+	}
+	for k := range t.Keys {
+		deleteKey(&qry, table.Title, k)
 	}
 
 	if _, err = tx.Exec(qry); err != nil {
