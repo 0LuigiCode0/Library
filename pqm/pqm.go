@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	_ "github.com/lib/pq"
 )
@@ -161,6 +162,13 @@ func JsonB(def json.RawMessage, isNotNull bool) *Column {
 		Default:   def,
 		IsNotNull: isNotNull,
 		Length:    0,
+	}
+}
+func Timestamp(def time.Time, isNotNull bool) *Column {
+	return &Column{
+		Type:      "timestamp",
+		Default:   def,
+		IsNotNull: isNotNull,
 	}
 }
 
