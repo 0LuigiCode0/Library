@@ -1,0 +1,114 @@
+#!/bin/bash
+
+export TAG_BACK=latest
+export TAG_FRONT=latest
+export TAG_ADMIN=latest
+
+cd ~/xcluster
+case $1 in
+   --all) 
+      git -C "./x-cluster-back" pull
+      git -C "./x-cluster-front" pull
+      git -C "./x-cluster-admin" pull
+      sed -i 's/x-cluster.dev/x-cluster.com/g' ./x-cluster-front/src/api
+      sed -i 's/x-cluster.dev/x-cluster.com/g' ./x-cluster-admin/src/api
+      docker tag localhost:5000/x-cluster-back:latest localhost:5000/x-cluster-back:stable
+      docker tag localhost:5000/x-cluster-front:latest localhost:5000/x-cluster-front:stable
+      docker tag localhost:5000/x-cluster-admin:latest localhost:5000/x-cluster-admin:stable
+      docker push localhost:5000/x-cluster-back:stable
+      docker push localhost:5000/x-cluster-front:stable
+      docker push localhost:5000/x-cluster-admin:stable
+      if [ $2 = -s ]
+      then
+             TAG_BACK=stable
+             TAG_FRONT=stable
+             TAG_ADMIN=stable
+      fi
+      ;;
+   -b)
+      git -C "./x-cluster-back" pull
+      docker tag localhost:5000/x-cluster-back:latest localhost:5000/x-cluster-back:stable
+      docker push localhost:5000/x-cluster-back:stable
+      if [ $2 = -s ]
+      then
+             TAG_BACK=stable
+      fi
+      ;;
+   -f)
+      git -C "./x-cluster-front" pull
+      sed -i 's/x-cluster.dev/x-cluster.com/g' ./x-cluster-front/src/api
+      docker tag localhost:5000/x-cluster-front:latest localhost:5000/x-cluster-front:stabl
+      docker push localhost:5000/x-cluster-front:stable
+      if [ $2 = -s ]
+      then
+             TAG_FRONT=stable
+      fi
+      ;;
+   -a)
+      git -C "./x-cluster-admin" pull
+      sed -i 's/x-cluster.dev/x-cluster.com/g' ./x-cluster-admin/src/api
+      docker tag localhost:5000/x-cluster-admin:latest localhost:5000/x-cluster-admin:stable
+      docker push localhost:5000/x-cluster-admin:stable
+      if [ $2 = -s ]
+      then
+             TAG_ADMIN=stable
+      fi
+      ;;
+   -h)
+      echo "flags list:"
+      echo -e "\t--all update all"
+      echo -e "\t-b update back"
+      echo -e "\t-f update front"
+      echo -e "\t-a update admin-front"
+      echo -e "\t-r clean registry"
+      exit
+      ;;
+   -r)
+      docker exec registry registry garbage-collect -d /etc/docker/registry/config.yml
+      docker exec registry registry garbage-collect -m /etc/docker/registry/config.yml
+      exit
+      ;;
+   --restart)
+      case $2 in
+        --all)
+            TAG_BACK=stable
+            TAG_FRONT=stable
+            TAG_ADMIN=stable
+            ;;
+        -b)
+            TAG_BACK=stable
+            ;;
+        -a)
+            TAG_ADMIN=stable
+            ;;
+        -f)
+            TAG_FRONT=stable
+            ;;
+        *)
+            ;;
+      esac
+      docker-compose -f docker-compose-local.yaml down
+      docker-compose -f docker-compose-local.yaml up -d
+      exit
+      ;;
+   *)
+      echo "invalid params"
+      echo "flags list:"
+      echo -e "\t--all update all"
+      echo -e "\t-b update back"
+      echo -e "\t-f update front"
+      echo -e "\t-a update admin-front"
+      echo -e "\t-r clean registry"
+      exit
+      ;;
+esac
+
+docker-compose -f docker-compose-builder.yaml build
+if [ $? -eq 1 ]
+then
+   docker-compose -f docker-compose-builder.yaml push
+   exit
+fi
+docker-compose -f docker-compose-builder.yaml push
+docker-compose -f docker-compose-local.yaml down
+docker-compose -f docker-compose-local.yaml up -d
