@@ -11,16 +11,16 @@ import (
 
 type Table struct {
 	Title  string
-	Column map[string]*column
-	Keys   map[string]*key
+	Column map[string]*Column
+	Keys   map[string]*Key
 }
-type column struct {
+type Column struct {
 	Type      string
 	IsNotNull bool
 	Default   interface{}
 	Length    int64
 }
-type key struct {
+type Key struct {
 	FromColumns     []string
 	ToColumns       []string
 	ToTableTitle    string
@@ -49,7 +49,7 @@ func InitTable(db *sql.DB, table *Table) error {
 	if err != nil {
 		return fmt.Errorf("scan table %v is failed: %v", table.Title, err)
 	}
-	qry := `create table if not exists ` + table.Title + ` (id bigserial primary key);`
+	qry := `create table if not exists ` + table.Title + ` (id bigserial primary Key);`
 
 	for k, v := range table.Column {
 		if tt, ok := t.Column[k]; ok {
@@ -93,64 +93,64 @@ func InitTable(db *sql.DB, table *Table) error {
 	return tx.Commit()
 }
 
-func Integer(def int32, isNotNull bool) *column {
-	return &column{
+func Integer(def int32, isNotNull bool) *Column {
+	return &Column{
 		Type:      "integer",
 		Default:   def,
 		IsNotNull: isNotNull,
 		Length:    0,
 	}
 }
-func Bigint(def int64, isNotNull bool) *column {
-	return &column{
+func Bigint(def int64, isNotNull bool) *Column {
+	return &Column{
 		Type:      "bigint",
 		Default:   def,
 		IsNotNull: isNotNull,
 		Length:    0,
 	}
 }
-func DPrecision(def float64, isNotNull bool) *column {
-	return &column{
+func DPrecision(def float64, isNotNull bool) *Column {
+	return &Column{
 		Type:      "double precision",
 		Default:   def,
 		IsNotNull: isNotNull,
 		Length:    0,
 	}
 }
-func VarChar(def string, length int64, isNotNull bool) *column {
-	return &column{
+func VarChar(def string, length int64, isNotNull bool) *Column {
+	return &Column{
 		Type:      "character varying",
 		Default:   def,
 		IsNotNull: isNotNull,
 		Length:    length,
 	}
 }
-func Text(def string, isNotNull bool) *column {
-	return &column{
+func Text(def string, isNotNull bool) *Column {
+	return &Column{
 		Type:      "text",
 		Default:   def,
 		IsNotNull: isNotNull,
 		Length:    0,
 	}
 }
-func Bytea(def []byte, isNotNull bool) *column {
-	return &column{
+func Bytea(def []byte, isNotNull bool) *Column {
+	return &Column{
 		Type:      "bytea",
 		Default:   def,
 		IsNotNull: isNotNull,
 		Length:    0,
 	}
 }
-func Array(def []interface{}, isNotNull bool) *column {
-	return &column{
+func Array(def []interface{}, isNotNull bool) *Column {
+	return &Column{
 		Type:      "array",
 		Default:   def,
 		IsNotNull: isNotNull,
 		Length:    0,
 	}
 }
-func JsonB(def json.RawMessage, isNotNull bool) *column {
-	return &column{
+func JsonB(def json.RawMessage, isNotNull bool) *Column {
+	return &Column{
 		Type:      "jsonb",
 		Default:   def,
 		IsNotNull: isNotNull,
@@ -158,14 +158,14 @@ func JsonB(def json.RawMessage, isNotNull bool) *column {
 	}
 }
 
-func Unique(fromColumn []string) *key {
-	return &key{
+func Unique(fromColumn []string) *Key {
+	return &Key{
 		FromColumns: fromColumn,
 		IsUnicue:    true,
 	}
 }
-func Reference(fromColumn, toTable, toColumn string) *key {
-	return &key{
+func Reference(fromColumn, toTable, toColumn string) *Key {
+	return &Key{
 		FromColumns:  []string{fromColumn},
 		ToColumns:    []string{toColumn},
 		ToTableTitle: toTable,
@@ -176,31 +176,31 @@ func Reference(fromColumn, toTable, toColumn string) *key {
 func scanInfo(title string, tx *sql.Tx) (*Table, error) {
 	t := &Table{
 		Title:  title,
-		Column: map[string]*column{},
-		Keys:   map[string]*key{},
+		Column: map[string]*Column{},
+		Keys:   map[string]*Key{},
 	}
 	res, err := tx.Query(`
 	select
-		c.column_name,
+		c.Column_name,
 		c.data_type,
-		case when c.column_default is not null then c.column_default else '' end,
+		case when c.Column_default is not null then c.Column_default else '' end,
 		case when c.character_maximum_length is not null then c.character_maximum_length else 0 end,
 		c.is_nullable,
 		case when kcu.constraint_name is not null then kcu.constraint_name else '' end,
 		case when tc.constraint_type is not null then tc.constraint_type else '' end,
-		case when ccu.column_name is not null then ccu.column_name else '' end,
+		case when ccu.Column_name is not null then ccu.Column_name else '' end,
 		case when ccu.table_name is not null then ccu.table_name else '' end
 	from
-		information_schema."columns" c
-	left join information_schema.key_column_usage kcu on
-		kcu.column_name = c.column_name
-	left join information_schema.constraint_column_usage ccu on
+		information_schema."Columns" c
+	left join information_schema.Key_Column_usage kcu on
+		kcu.Column_name = c.Column_name
+	left join information_schema.constraint_Column_usage ccu on
 		ccu.constraint_name = kcu.constraint_name
 	left join information_schema.table_constraints tc on
 		tc.constraint_name = ccu.constraint_name
 	where
 		c.table_name = $1
-		and c.column_name <> 'id'
+		and c.Column_name <> 'id'
 	`, title)
 	if err != nil {
 		return t, fmt.Errorf("table info not found: %v", err)
@@ -213,7 +213,7 @@ func scanInfo(title string, tx *sql.Tx) (*Table, error) {
 			return t, fmt.Errorf("Table scan is failed: %v", err)
 		}
 		if _, ok := t.Column[ti.Column]; !ok {
-			t.Column[ti.Column] = &column{
+			t.Column[ti.Column] = &Column{
 				Type:    ti.ColumnType,
 				Default: ti.Default,
 				Length:  ti.Length,
@@ -224,22 +224,22 @@ func scanInfo(title string, tx *sql.Tx) (*Table, error) {
 		}
 		if ti.Key != "" {
 			if k, ok := t.Keys[ti.Key]; ok {
-			fcolumns:
+			fColumns:
 				for {
 					for _, c := range k.FromColumns {
 						if c == ti.Column {
-							break fcolumns
+							break fColumns
 						}
 					}
 					k.FromColumns = append(k.FromColumns, ti.Column)
 					break
 				}
 				if ti.KeyTable != title {
-				tcolumns:
+				tColumns:
 					for {
 						for _, c := range k.ToColumns {
 							if c == ti.KeyColumn {
-								break tcolumns
+								break tColumns
 							}
 						}
 						k.ToColumns = append(k.ToColumns, ti.KeyColumn)
@@ -247,7 +247,7 @@ func scanInfo(title string, tx *sql.Tx) (*Table, error) {
 					}
 				}
 			} else {
-				k = &key{
+				k = &Key{
 					FromColumns:  []string{ti.Column},
 					ToColumns:    []string{},
 					ToTableTitle: ti.KeyTable,
@@ -269,8 +269,8 @@ func scanInfo(title string, tx *sql.Tx) (*Table, error) {
 	return t, nil
 }
 
-func addColumn(qry *string, title, key string, c *column) {
-	*qry += fmt.Sprintf("\nalter table %v add %v %v", title, key, c.Type)
+func addColumn(qry *string, title, Key string, c *Column) {
+	*qry += fmt.Sprintf("\nalter table %v add %v %v", title, Key, c.Type)
 	if c.Type == "character varying" && c.Length > 0 {
 		*qry += fmt.Sprintf("(%v)", c.Length)
 	}
@@ -292,23 +292,23 @@ func addColumn(qry *string, title, key string, c *column) {
 	}
 	*qry += ";"
 }
-func setLengthColumn(qry *string, title, key, typ string, length int64) {
-	*qry += fmt.Sprintf("\nalter table %v alter column %v type %v", title, key, typ)
+func setLengthColumn(qry *string, title, Key, typ string, length int64) {
+	*qry += fmt.Sprintf("\nalter table %v alter Column %v type %v", title, Key, typ)
 	if length > 0 {
 		*qry += fmt.Sprintf("(%v)", length)
 	}
-	*qry += fmt.Sprintf(" using %v::%v;", key, typ)
+	*qry += fmt.Sprintf(" using %v::%v;", Key, typ)
 }
-func setNullColumn(qry *string, title, key string, isNotNull bool) {
-	*qry += fmt.Sprintf("\nalter table %v alter column %v", title, key)
+func setNullColumn(qry *string, title, Key string, isNotNull bool) {
+	*qry += fmt.Sprintf("\nalter table %v alter Column %v", title, Key)
 	if isNotNull {
 		*qry += " set not null;"
 	} else {
 		*qry += " drop not null;"
 	}
 }
-func setDefaultColumn(qry *string, title, key, typ string, def interface{}) {
-	*qry += fmt.Sprintf("\nalter table %v alter column %v", title, key)
+func setDefaultColumn(qry *string, title, Key, typ string, def interface{}) {
+	*qry += fmt.Sprintf("\nalter table %v alter Column %v", title, Key)
 	if def != nil {
 		if v, ok := def.(string); ok {
 			if v != "" {
@@ -329,25 +329,25 @@ func setDefaultColumn(qry *string, title, key, typ string, def interface{}) {
 		*qry += " drop default;"
 	}
 }
-func deleteColumn(qry *string, title, key string) {
-	*qry += fmt.Sprintf("\nalter table %v drop column %v;", title, key)
+func deleteColumn(qry *string, title, Key string) {
+	*qry += fmt.Sprintf("\nalter table %v drop Column %v;", title, Key)
 }
 
-func addKey(qry *string, title, key string, k *key) {
+func addKey(qry *string, title, Key string, k *Key) {
 	if k.IsUnicue {
 		if len(k.FromColumns) > 0 {
-			*qry += fmt.Sprintf("\nalter table %v add constraint %v unique(", title, key)
+			*qry += fmt.Sprintf("\nalter table %v add constraint %v unique(", title, Key)
 			*qry += strings.Join(k.FromColumns, ",")
 			*qry += ");"
 		}
 	} else if k.IsReferences {
 		if len(k.FromColumns) == 1 && len(k.ToColumns) == 1 {
-			*qry += fmt.Sprintf("\nalter table %v add constraint %v foreign key (%v) references %v(%v) on delete cascade;", title, key, k.FromColumns[0], k.ToTableTitle, k.ToColumns[0])
+			*qry += fmt.Sprintf("\nalter table %v add constraint %v foreign Key (%v) references %v(%v) on delete cascade;", title, Key, k.FromColumns[0], k.ToTableTitle, k.ToColumns[0])
 		}
 	}
 }
-func deleteKey(qry *string, title, key string) {
-	*qry += fmt.Sprintf("\nalter table %v drop constraint %v;", title, key)
+func deleteKey(qry *string, title, Key string) {
+	*qry += fmt.Sprintf("\nalter table %v drop constraint %v;", title, Key)
 }
 
 func equalsArray(from, to []string) bool {
