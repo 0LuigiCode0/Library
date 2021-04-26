@@ -133,6 +133,12 @@ func Text(def string, isNotNull bool) *Column {
 		Length:    0,
 	}
 }
+func Boolean(def bool) *Column {
+	return &Column{
+		Type:    "boolean",
+		Default: def,
+	}
+}
 func Bytea(def []byte, isNotNull bool) *Column {
 	return &Column{
 		Type:      "bytea",
