@@ -763,7 +763,7 @@ func paintGIF(version, size, maxSizeImg int, dataImg *[][]byte, image2 *gif.GIF)
 	for _, img := range image2.Image {
 		frame := paintImage(version, size, maxSizeImg, dataImg, img)
 		pall := image.NewPaletted(frame.Rect, palette.Plan9)
-		draw.FloydSteinberg.Draw(pall, frame.Rect, frame, image.ZP)
+		draw.FloydSteinberg.Draw(pall, frame.Rect, frame, image.Point{})
 
 		image1.Image = append(image1.Image, pall)
 	}
