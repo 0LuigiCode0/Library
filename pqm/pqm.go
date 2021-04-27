@@ -41,11 +41,7 @@ type tableInfo struct {
 	KeyTable   string
 }
 
-func InitTable(db *sql.DB, table *Table) error {
-	tx, err := db.Begin()
-	if err != nil {
-		return fmt.Errorf("start tx is failed: %v", err)
-	}
+func InitTable(tx *sql.Tx, table *Table) error {
 	t, err := scanInfo(table.Title, tx)
 	if err != nil {
 		return fmt.Errorf("scan table %v is failed: %v", table.Title, err)
@@ -99,7 +95,7 @@ func InitTable(db *sql.DB, table *Table) error {
 	if _, err = tx.Exec(qry); err != nil {
 		return fmt.Errorf("migration is failed: %v", err)
 	}
-	return tx.Commit()
+	return nil
 }
 
 func Integer(def int32, isNotNull bool) *Column {
@@ -305,6 +301,8 @@ func addColumn(qry *string, title, Key string, c *Column) {
 			*qry += fmt.Sprintf(" default '%v'::%v", string(v), c.Type)
 		} else if v, ok := c.Default.(time.Time); ok {
 			*qry += fmt.Sprintf(" default '%v'::%v", v.String(), c.Type)
+		} else if v, ok := c.Default.([]byte); ok {
+			*qry += fmt.Sprintf(" default '%v'::%v", string(v), c.Type)
 		} else {
 			*qry += fmt.Sprintf(" default %v::%v", c.Default, c.Type)
 		}
@@ -338,6 +336,8 @@ func setDefaultColumn(qry *string, title, Key, typ string, def interface{}) {
 			*qry += fmt.Sprintf(" set default '%v'::%v;", string(v), typ)
 		} else if v, ok := def.(time.Time); ok {
 			*qry += fmt.Sprintf(" set default '%v'::%v;", v.String(), typ)
+		} else if v, ok := def.([]byte); ok {
+			*qry += fmt.Sprintf(" set default '%v'::%v", string(v), typ)
 		} else {
 			*qry += fmt.Sprintf(" set default %v::%v;", def, typ)
 		}
