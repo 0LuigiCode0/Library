@@ -290,13 +290,9 @@ func addColumn(qry *string, title, Key string, c *Column) {
 	}
 	if c.Default != nil {
 		if v, ok := c.Default.(string); ok {
-			if v != "" {
-				*qry += fmt.Sprintf(" default '%v'::%v", v, c.Type)
-			}
+			*qry += fmt.Sprintf(" default '%v'::%v", v, c.Type)
 		} else if v, ok := c.Default.(json.RawMessage); ok {
-			if v != nil {
-				*qry += fmt.Sprintf(" default '%v'::%v", string(v), c.Type)
-			}
+			*qry += fmt.Sprintf(" default '%v'::%v", string(v), c.Type)
 		} else {
 			*qry += fmt.Sprintf(" default %v::%v", c.Default, c.Type)
 		}
@@ -325,17 +321,9 @@ func setDefaultColumn(qry *string, title, Key, typ string, def interface{}) {
 	*qry += fmt.Sprintf("\nalter table %v alter Column %v", title, Key)
 	if def != nil {
 		if v, ok := def.(string); ok {
-			if v != "" {
-				*qry += fmt.Sprintf(" set default '%v'::%v;", v, typ)
-			} else {
-				*qry += " drop default;"
-			}
+			*qry += fmt.Sprintf(" set default '%v'::%v;", v, typ)
 		} else if v, ok := def.(json.RawMessage); ok {
-			if v != nil {
-				*qry += fmt.Sprintf(" set default '%v'::%v;", string(v), typ)
-			} else {
-				*qry += " drop default;"
-			}
+			*qry += fmt.Sprintf(" set default '%v'::%v;", string(v), typ)
 		} else {
 			*qry += fmt.Sprintf(" set default %v::%v;", def, typ)
 		}
