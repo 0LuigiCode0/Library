@@ -61,7 +61,7 @@ func InitTable(tx *sql.Tx, table *Table) error {
 			if tt.IsNotNull != v.IsNotNull {
 				setNullColumn(&qry, table.Title, k, v.IsNotNull)
 			}
-			if tt.Default != v.Default {
+			if tt.Default != buildDef(v.Default, v.Type) {
 				setDefaultColumn(&qry, table.Title, k, v.Type, v.Default)
 			}
 		} else {
@@ -294,18 +294,8 @@ func addColumn(qry *string, title, Key string, c *Column) {
 	if c.Type == "character varying" && c.Length > 0 {
 		*qry += fmt.Sprintf("(%v)", c.Length)
 	}
-	if c.Default != nil {
-		if v, ok := c.Default.(string); ok {
-			*qry += fmt.Sprintf(" default '%v'::%v", v, c.Type)
-		} else if v, ok := c.Default.(json.RawMessage); ok {
-			*qry += fmt.Sprintf(" default '%v'::%v", string(v), c.Type)
-		} else if v, ok := c.Default.(time.Time); ok {
-			*qry += fmt.Sprintf(" default '%v'::%v", v.Format(time.RFC3339), c.Type)
-		} else if v, ok := c.Default.([]byte); ok {
-			*qry += fmt.Sprintf(" default '%v'::%v", string(v), c.Type)
-		} else {
-			*qry += fmt.Sprintf(" default %v::%v", c.Default, c.Type)
-		}
+	if v := buildDef(c.Default, c.Type); v != "" {
+		*qry += fmt.Sprintf(" default %v", v)
 	}
 	if c.IsNotNull {
 		*qry += " not null"
@@ -329,18 +319,8 @@ func setNullColumn(qry *string, title, Key string, isNotNull bool) {
 }
 func setDefaultColumn(qry *string, title, Key, typ string, def interface{}) {
 	*qry += fmt.Sprintf("\nalter table %v alter Column %v", title, Key)
-	if def != nil {
-		if v, ok := def.(string); ok {
-			*qry += fmt.Sprintf(" set default '%v'::%v;", v, typ)
-		} else if v, ok := def.(json.RawMessage); ok {
-			*qry += fmt.Sprintf(" set default '%v'::%v;", string(v), typ)
-		} else if v, ok := def.(time.Time); ok {
-			*qry += fmt.Sprintf(" set default '%v'::%v;", v.Format(time.RFC3339), typ)
-		} else if v, ok := def.([]byte); ok {
-			*qry += fmt.Sprintf(" set default '%v'::%v;", string(v), typ)
-		} else {
-			*qry += fmt.Sprintf(" set default %v::%v;", def, typ)
-		}
+	if v := buildDef(def, typ); v != "" {
+		*qry += fmt.Sprintf(" set default %v;", v)
 	} else {
 		*qry += " drop default;"
 	}
@@ -382,4 +362,21 @@ loop:
 		flag = false
 	}
 	return flag
+}
+
+func buildDef(def interface{}, typ string) string {
+	if def != nil {
+		if v, ok := def.(string); ok {
+			return fmt.Sprintf("'%v'::%v", v, typ)
+		} else if v, ok := def.(json.RawMessage); ok {
+			return fmt.Sprintf("'%v'::%v", string(v), typ)
+		} else if v, ok := def.(time.Time); ok {
+			return fmt.Sprintf("'%v'::%v", v.Format(time.RFC3339), typ)
+		} else if v, ok := def.([]byte); ok {
+			return fmt.Sprintf("'%v'::%v", string(v), typ)
+		} else {
+			return fmt.Sprintf("'%v'::%v", v, typ)
+		}
+	}
+	return ""
 }
