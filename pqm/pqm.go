@@ -94,6 +94,8 @@ func InitTable(db *sql.DB, table *Table) error {
 	}
 	qry += keys
 
+	fmt.Println(qry)
+
 	if _, err = tx.Exec(qry); err != nil {
 		return fmt.Errorf("migration is failed: %v", err)
 	}
