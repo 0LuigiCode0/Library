@@ -337,7 +337,7 @@ func setDefaultColumn(qry *string, title, Key, typ string, def interface{}) {
 		} else if v, ok := def.(time.Time); ok {
 			*qry += fmt.Sprintf(" set default '%v'::%v;", v.String(), typ)
 		} else if v, ok := def.([]byte); ok {
-			*qry += fmt.Sprintf(" set default '%v'::%v", string(v), typ)
+			*qry += fmt.Sprintf(" set default '%v'::%v;", string(v), typ)
 		} else {
 			*qry += fmt.Sprintf(" set default %v::%v;", def, typ)
 		}
