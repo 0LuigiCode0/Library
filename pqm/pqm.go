@@ -73,6 +73,7 @@ func InitTable(db *sql.DB, table *Table) error {
 		}
 	}
 
+	keys := ""
 	for k, v := range table.Keys {
 		if kk, ok := t.Keys[k]; ok {
 			if kk.IsReferences != v.IsReferences ||
@@ -80,17 +81,18 @@ func InitTable(db *sql.DB, table *Table) error {
 				(v.ToTableTitle != "" && kk.ToTableTitle != v.ToTableTitle) ||
 				!equalsArray(v.FromColumns, kk.FromColumns) ||
 				!equalsArray(v.ToColumns, kk.ToColumns) {
-				deleteKey(&qry, table.Title, k)
-				addKey(&qry, table.Title, k, v)
+				deleteKey(&keys, table.Title, k)
+				addKey(&keys, table.Title, k, v)
 			}
 			delete(t.Keys, k)
 		} else {
-			addKey(&qry, table.Title, k, v)
+			addKey(&keys, table.Title, k, v)
 		}
 	}
 	for k := range t.Keys {
 		deleteKey(&qry, table.Title, k)
 	}
+	qry += keys
 
 	if _, err = tx.Exec(qry); err != nil {
 		return fmt.Errorf("migration is failed: %v", err)
@@ -297,6 +299,8 @@ func addColumn(qry *string, title, Key string, c *Column) {
 			*qry += fmt.Sprintf(" default '%v'::%v", v, c.Type)
 		} else if v, ok := c.Default.(json.RawMessage); ok {
 			*qry += fmt.Sprintf(" default '%v'::%v", string(v), c.Type)
+		} else if v, ok := c.Default.(time.Time); ok {
+			*qry += fmt.Sprintf(" default '%v'::%v", v.String(), c.Type)
 		} else {
 			*qry += fmt.Sprintf(" default %v::%v", c.Default, c.Type)
 		}
@@ -328,8 +332,10 @@ func setDefaultColumn(qry *string, title, Key, typ string, def interface{}) {
 			*qry += fmt.Sprintf(" set default '%v'::%v;", v, typ)
 		} else if v, ok := def.(json.RawMessage); ok {
 			*qry += fmt.Sprintf(" set default '%v'::%v;", string(v), typ)
+		} else if v, ok := def.(time.Time); ok {
+			*qry += fmt.Sprintf(" set default '%v'::%v", v.String(), typ)
 		} else {
-			*qry += fmt.Sprintf(" set default %v::%v;", def, typ)
+			*qry += fmt.Sprintf(" set default %v::%v", def, typ)
 		}
 	} else {
 		*qry += " drop default;"
