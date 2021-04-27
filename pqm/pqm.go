@@ -375,7 +375,7 @@ func buildDef(def interface{}, typ string) string {
 		} else if v, ok := def.([]byte); ok {
 			return fmt.Sprintf("'%v'::%v", string(v), typ)
 		} else {
-			return fmt.Sprintf("%v::%v", v, typ)
+			return fmt.Sprintf("%v::%v", def, typ)
 		}
 	}
 	return ""
