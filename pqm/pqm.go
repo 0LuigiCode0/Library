@@ -300,7 +300,7 @@ func addColumn(qry *string, title, Key string, c *Column) {
 		} else if v, ok := c.Default.(json.RawMessage); ok {
 			*qry += fmt.Sprintf(" default '%v'::%v", string(v), c.Type)
 		} else if v, ok := c.Default.(time.Time); ok {
-			*qry += fmt.Sprintf(" default '%v'::%v", v.String(), c.Type)
+			*qry += fmt.Sprintf(" default '%v'::%v", v.Format(time.RFC3339), c.Type)
 		} else if v, ok := c.Default.([]byte); ok {
 			*qry += fmt.Sprintf(" default '%v'::%v", string(v), c.Type)
 		} else {
@@ -335,7 +335,7 @@ func setDefaultColumn(qry *string, title, Key, typ string, def interface{}) {
 		} else if v, ok := def.(json.RawMessage); ok {
 			*qry += fmt.Sprintf(" set default '%v'::%v;", string(v), typ)
 		} else if v, ok := def.(time.Time); ok {
-			*qry += fmt.Sprintf(" set default '%v'::%v;", v.String(), typ)
+			*qry += fmt.Sprintf(" set default '%v'::%v;", v.Format(time.RFC3339), typ)
 		} else if v, ok := def.([]byte); ok {
 			*qry += fmt.Sprintf(" set default '%v'::%v;", string(v), typ)
 		} else {
