@@ -216,6 +216,8 @@ func scanInfo(title string, tx *sql.Tx) (*Table, error) {
 		information_schema."columns" c
 	left join information_schema.key_column_usage kcu on
 		kcu.column_name = c.column_name
+		and
+		kcu.table_name = c.table_name 
 	left join information_schema.constraint_column_usage ccu on
 		ccu.constraint_name = kcu.constraint_name
 	left join information_schema.table_constraints tc on
