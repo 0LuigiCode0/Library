@@ -214,8 +214,8 @@ func QRGenerate(content, imagePath, qrPath string, sizeImg float64) error {
 			if err != nil {
 				return err
 			}
-			if !strings.HasSuffix(qrPath, ".png") {
-				return errors.New("QR only type png")
+			if !strings.HasSuffix(qrPath, ".jpg") {
+				return errors.New("QR not jpg")
 			}
 		case "image/png":
 			gachi, err = png.Decode(file)
@@ -223,7 +223,7 @@ func QRGenerate(content, imagePath, qrPath string, sizeImg float64) error {
 				return err
 			}
 			if !strings.HasSuffix(qrPath, ".png") {
-				return errors.New("QR only type png")
+				return errors.New("QR not png")
 			}
 		case "image/gif":
 			gachi, err = gif.DecodeAll(file)
@@ -231,7 +231,7 @@ func QRGenerate(content, imagePath, qrPath string, sizeImg float64) error {
 				return err
 			}
 			if !strings.HasSuffix(qrPath, ".gif") {
-				return errors.New("if image have type gif then qr only type gif")
+				return errors.New("QR not gif")
 			}
 		default:
 			return errors.New("image wrong type")
@@ -241,10 +241,6 @@ func QRGenerate(content, imagePath, qrPath string, sizeImg float64) error {
 		blocks = &blocksH
 		byteCorect = &byteCorectH
 		levelCorrect = levelCorrectH
-	} else {
-		if !strings.HasSuffix(qrPath, ".png") {
-			return errors.New("QR only type png")
-		}
 	}
 
 	//Перевод строки в двоичную последовательность
@@ -290,19 +286,18 @@ func QRGenerate(content, imagePath, qrPath string, sizeImg float64) error {
 	}
 
 	if img2, ok := gachi.(image.Image); ok {
-		if err := png.Encode(file1, paintImage(version, size, maxSizeGachi, &dataImg, img2)); err != nil {
+		if err := png.Encode(file1, paintImage(size, maxSizeGachi, &dataImg, img2)); err != nil {
 			return err
 		}
 	} else if img2, ok := gachi.(*gif.GIF); ok {
-		if err := gif.EncodeAll(file1, paintGIF(version, size, maxSizeGachi, &dataImg, img2)); err != nil {
+		if err := gif.EncodeAll(file1, paintGIF(size, maxSizeGachi, &dataImg, img2)); err != nil {
 			return err
 		}
 	} else {
-		if err := png.Encode(file1, paintImage(version, size, maxSizeGachi, &dataImg, nil)); err != nil {
+		if err := png.Encode(file1, paintImage(size, maxSizeGachi, &dataImg, nil)); err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 
@@ -334,7 +329,7 @@ func howToVersion(length int, maxData *[]int) (version int, lenSystemData int, e
 		}
 		switch {
 		case i < 9:
-			if length+12 > max {
+			if length+92 > max {
 				i++
 				if i == 9 {
 					version = i
@@ -345,7 +340,7 @@ func howToVersion(length int, maxData *[]int) (version int, lenSystemData int, e
 			version = i
 			lenSystemData = 12
 		case i >= 9 && i < 26:
-			if length+20 > max {
+			if length+100 > max {
 				i++
 				if i == 26 {
 					version = i
@@ -356,7 +351,7 @@ func howToVersion(length int, maxData *[]int) (version int, lenSystemData int, e
 			version = i
 			lenSystemData = 20
 		case i >= 26 && i < 40:
-			if length+20 > max {
+			if length+100 > max {
 				i++
 				if i == 40 {
 					err = errors.New("data's oversize")
@@ -713,7 +708,7 @@ func write(img *[][]byte, data *[]int) {
 	}
 }
 
-func paintImage(version, size, maxSizeImg int, dataImg *[][]byte, image2 image.Image) *image.CMYK {
+func paintImage(size, maxSizeImg int, dataImg *[][]byte, image2 image.Image) *image.CMYK {
 	var sizeImg, shift int
 	coeff := 1
 	if image2 != nil {
@@ -755,13 +750,13 @@ func paintImage(version, size, maxSizeImg int, dataImg *[][]byte, image2 image.I
 	return image1
 }
 
-func paintGIF(version, size, maxSizeImg int, dataImg *[][]byte, image2 *gif.GIF) *gif.GIF {
+func paintGIF(size, maxSizeImg int, dataImg *[][]byte, image2 *gif.GIF) *gif.GIF {
 	image1 := &gif.GIF{
 		Delay:     image2.Delay,
 		LoopCount: image2.LoopCount,
 	}
 	for _, img := range image2.Image {
-		frame := paintImage(version, size, maxSizeImg, dataImg, img)
+		frame := paintImage(size, maxSizeImg, dataImg, img)
 		pall := image.NewPaletted(frame.Rect, palette.Plan9)
 		draw.FloydSteinberg.Draw(pall, frame.Rect, frame, image.Point{})
 
