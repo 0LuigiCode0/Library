@@ -255,7 +255,7 @@ func QRGenerate(content, imagePath, qrPath string, sizeImg float64) error {
 		return err
 	}
 
-	maxSizeGachi = int(math.Sqrt(sizeImage(sizeImg, version)))
+	maxSizeGachi = int(math.Sqrt(float64((qrBlocks[version]*qrBlocks[version])-240-(len(coordAnchor[version])*25)-(qrBlocks[version]*2)) * sizeImg))
 	if maxSizeGachi%2 == 0 {
 		maxSizeGachi--
 	}
@@ -761,11 +761,4 @@ func paintGIF(size, maxSizeImg int, dataImg *[][]byte, image2 *gif.GIF) *gif.GIF
 	}
 
 	return image1
-}
-
-func sizeImage(sizeImg float64, version int) float64 {
-	if sizeImg > 0 {
-		return float64((qrBlocks[version]*qrBlocks[version])-240-(len(coordAnchor[version])*25)-(qrBlocks[version]*2)) * sizeImg
-	}
-	return 0
 }
