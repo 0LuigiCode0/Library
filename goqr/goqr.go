@@ -2,6 +2,7 @@ package goqr
 
 import (
 	"errors"
+	"fmt"
 	"image"
 	"image/color"
 	"image/color/palette"
@@ -130,9 +131,9 @@ var codeVersion = [][]int{
 	{0x29, 0x3e, 0x0},
 	{0xf, 0x3a, 0x3c},
 	{0xd, 0x24, 0x1a},
-	// {0x,0x,0x},	101011 100000 100110
-	// {0x,0x,0x},	110101 000110 100010
-	// {0x,0x,0x},	010011 000010 011110
+	{0x2b, 0x20, 0x26},
+	{0x35, 0x6, 0x22},
+	{0x13, 0x2, 0x1e},
 	// {0x,0x,0x},	011100 010001 011100
 	// {0x,0x,0x},	111010 010101 100000
 	// {0x,0x,0x},	100100 110011 100100
@@ -173,6 +174,8 @@ var coordAnchor = [][][]int{
 	{{6, 28}, {28, 6}, {28, 28}, {28, 50}, {50, 28}, {50, 50}},
 	{{6, 30}, {30, 6}, {30, 30}, {30, 54}, {54, 30}, {54, 54}},
 	{{6, 32}, {32, 6}, {32, 32}, {32, 58}, {58, 32}, {58, 58}},
+	{{6, 34}, {34, 6}, {34, 34}, {34, 62}, {62, 34}, {62, 62}},
+	{{6, 26}, {6, 46}, {26, 6}, {26, 26}, {26, 46}, {26, 66}, {46, 6}, {46, 26}, {46, 46}, {46, 66}, {66, 26}, {66, 46}, {66, 66}},
 }
 
 const (
@@ -248,28 +251,29 @@ func QRGenerate(content, imagePath, qrPath string, sizeImg float64) error {
 	//Перевод строки в двоичную последовательность
 	length, data := utfToBit(content)
 	//Выбор версии QR кода и длины системных данных
-	version, lenSystemData, err := howToVersion(sizeImg, length, maxData)
+	version, lenSystemData, err := howToVersion(length, maxData, byteCorect, blocks)
 	if err != nil {
 		return err
 	}
-	maxSizeGachi = sizeImage(sizeImg, version)
+
+	maxSizeGachi = int(math.Sqrt(sizeImage(sizeImg, version)))
 	if maxSizeGachi%2 == 0 {
 		maxSizeGachi--
 	}
-
 	//Запись системных данных в начало массива
 	data = addServicesData(content, version, lenSystemData, maxData, data)
 	//Дозаполнение пустышками до необходимой длины
 	addVoidData(lenSystemData, length, version, maxData, &data)
 	//Пстроение блоков
-	block, byteBlock, size := buildBlock(version, maxData, blocks, &data)
+	block, byteBlock, sizeBlock := buildBlock(version, maxData, blocks, &data)
 	//Создание байт коррекции
-	countByteCorect, corectBlock, length := buildCorectBlock(version, block, length, byteCorect, &byteBlock)
+	countByteCorect, corectBlock, sizeCorrBlock := buildCorectBlock(version, block, byteCorect, &byteBlock)
+	fmt.Println(countByteCorect, corectBlock, length)
 	//Групирование блоков данных
-	data = groupData(length, size, countByteCorect, &byteBlock, &corectBlock)
+	data = groupData(sizeBlock, sizeCorrBlock, countByteCorect, &byteBlock, &corectBlock)
 
 	//Рисование
-	size = qrBlocks[version]
+	size := qrBlocks[version]
 	dataImg := make([][]byte, size)
 	for i := range dataImg {
 		dataImg[i] = make([]byte, size)
@@ -280,6 +284,8 @@ func QRGenerate(content, imagePath, qrPath string, sizeImg float64) error {
 	codeVer(&dataImg, version)
 	anchor(&dataImg, version)
 	write(&dataImg, &data)
+
+	fmt.Println(len(data)*8, data)
 
 	//Вывод изображения
 	file1, err := os.OpenFile(qrPath, os.O_CREATE|os.O_RDWR, 0777)
@@ -323,15 +329,17 @@ func utfToBit(content string) (length int, dataBit []int) {
 }
 
 //Выбор версии QR кода и длины системных данных
-func howToVersion(sizeImg float64, length int, maxData *[]int) (version int, lenSystemData int, err error) {
+func howToVersion(length int, maxData, byteCorect, blocks *[]int) (version int, lenSystemData int, err error) {
 	for i := 0; i < 40; i++ {
 		max := (*maxData)[i]
-		if length > max {
+		size := length + 20
+		fmt.Println(size, max)
+		if size > max {
 			continue
 		}
 		switch {
 		case i < 9:
-			if length+sizeImage(sizeImg, i) > max {
+			if size >= max {
 				i++
 				if i == 9 {
 					version = i
@@ -342,7 +350,7 @@ func howToVersion(sizeImg float64, length int, maxData *[]int) (version int, len
 			version = i
 			lenSystemData = 12
 		case i >= 9 && i < 26:
-			if length+sizeImage(sizeImg, i) > max {
+			if size >= max {
 				i++
 				if i == 26 {
 					version = i
@@ -353,7 +361,7 @@ func howToVersion(sizeImg float64, length int, maxData *[]int) (version int, len
 			version = i
 			lenSystemData = 20
 		case i >= 26 && i < 40:
-			if length+sizeImage(sizeImg, i) > max {
+			if size >= max {
 				i++
 				if i == 40 {
 					err = errors.New("data's oversize")
@@ -411,8 +419,7 @@ func addVoidData(lenSystemData int, length int, version int, maxData, newData *[
 }
 
 //Пстроение блоков
-func buildBlock(version int, maxData, blocks, newData *[]int) (block int, byteBlock [][]int, size int) {
-	length := 0
+func buildBlock(version int, maxData, blocks, newData *[]int) (block int, byteBlock [][]int, length int) {
 	count := 0
 	block = (*blocks)[version]
 	byteBlock = make([][]int, block)
@@ -443,10 +450,10 @@ func buildBlock(version int, maxData, blocks, newData *[]int) (block int, byteBl
 }
 
 //Создание байт коррекции
-func buildCorectBlock(version int, block int, length int, byteCorect *[]int, byteBlock *[][]int) (int, [][]int, int) {
-	countByteCorect := (*byteCorect)[version]
+func buildCorectBlock(version int, block int, byteCorect *[]int, byteBlock *[][]int) (countByteCorect int, corectBlock [][]int, length int) {
+	countByteCorect = (*byteCorect)[version]
 	polinomCorect := polinom[countByteCorect]
-	corectBlock := make([][]int, block)
+	corectBlock = make([][]int, block)
 	for i := range corectBlock {
 		if len((*byteBlock)[i]) > countByteCorect {
 			corectBlock[i] = make([]int, len((*byteBlock)[i]))
@@ -477,10 +484,12 @@ func buildCorectBlock(version int, block int, length int, byteCorect *[]int, byt
 }
 
 //Групирование блоков данных
-func groupData(length, size, countByteCorect int, byteBlock, corectBlock *[][]int) (data []int) {
+func groupData(sizBlock, sizeCorrBlock, countByteCorect int, byteBlock, corectBlock *[][]int) (data []int) {
 	count := 0
+	length := sizBlock + sizeCorrBlock
 	data = make([]int, length)
-	for j := 0; j < size+1; j++ {
+	fmt.Println(length, sizBlock, sizeCorrBlock, byteBlock, corectBlock)
+	for j := 0; j < length; j++ {
 		for _, v := range *byteBlock {
 			if len(v) > j {
 				data[count] = v[j]
@@ -768,9 +777,9 @@ func paintGIF(size, maxSizeImg int, dataImg *[][]byte, image2 *gif.GIF) *gif.GIF
 	return image1
 }
 
-func sizeImage(sizeImg float64, version int) int {
+func sizeImage(sizeImg float64, version int) float64 {
 	if sizeImg > 0 {
-		return int(math.Sqrt(float64((qrBlocks[version]*qrBlocks[version])-240-(len(coordAnchor[version])*25)-(qrBlocks[version]*2)) * sizeImg))
+		return float64((qrBlocks[version]*qrBlocks[version])-240-(len(coordAnchor[version])*25)-(qrBlocks[version]*2)) * sizeImg
 	}
 	return 0
 }
