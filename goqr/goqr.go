@@ -2,7 +2,6 @@ package goqr
 
 import (
 	"errors"
-	"fmt"
 	"image"
 	"image/color"
 	"image/color/palette"
@@ -268,7 +267,6 @@ func QRGenerate(content, imagePath, qrPath string, sizeImg float64) error {
 	block, byteBlock, sizeBlock := buildBlock(version, maxData, blocks, &data)
 	//Создание байт коррекции
 	countByteCorect, corectBlock, sizeCorrBlock := buildCorectBlock(version, block, byteCorect, &byteBlock)
-	fmt.Println(countByteCorect, corectBlock, length)
 	//Групирование блоков данных
 	data = groupData(sizeBlock, sizeCorrBlock, countByteCorect, &byteBlock, &corectBlock)
 
@@ -284,8 +282,6 @@ func QRGenerate(content, imagePath, qrPath string, sizeImg float64) error {
 	codeVer(&dataImg, version)
 	anchor(&dataImg, version)
 	write(&dataImg, &data)
-
-	fmt.Println(len(data)*8, data)
 
 	//Вывод изображения
 	file1, err := os.OpenFile(qrPath, os.O_CREATE|os.O_RDWR, 0777)
@@ -333,7 +329,6 @@ func howToVersion(length int, maxData, byteCorect, blocks *[]int) (version int, 
 	for i := 0; i < 40; i++ {
 		max := (*maxData)[i]
 		size := length + 20
-		fmt.Println(size, max)
 		if size > max {
 			continue
 		}
@@ -434,15 +429,7 @@ func buildBlock(version int, maxData, blocks, newData *[]int) (block int, byteBl
 			length += size
 		}
 		for j := 0; j < len(byteBlock[i]); j++ {
-			x := (*newData)[count] * (2 << 6)
-			x += (*newData)[count+1] * (2 << 5)
-			x += (*newData)[count+2] * (2 << 4)
-			x += (*newData)[count+3] * (2 << 3)
-			x += (*newData)[count+4] * (2 << 2)
-			x += (*newData)[count+5] * (2 << 1)
-			x += (*newData)[count+6] * (2 << 0)
-			x += (*newData)[count+7] * (1)
-			byteBlock[i][j] = x
+			byteBlock[i][j] = (*newData)[count]*(2<<6) + (*newData)[count+1]*(2<<5) + (*newData)[count+2]*(2<<4) + (*newData)[count+3]*(2<<3) + (*newData)[count+4]*(2<<2) + (*newData)[count+5]*(2<<1) + (*newData)[count+6]*(2<<0) + (*newData)[count+7]
 			count += 8
 		}
 	}
@@ -488,7 +475,6 @@ func groupData(sizBlock, sizeCorrBlock, countByteCorect int, byteBlock, corectBl
 	count := 0
 	length := sizBlock + sizeCorrBlock
 	data = make([]int, length)
-	fmt.Println(length, sizBlock, sizeCorrBlock, byteBlock, corectBlock)
 	for j := 0; j < length; j++ {
 		for _, v := range *byteBlock {
 			if len(v) > j {
@@ -499,7 +485,7 @@ func groupData(sizBlock, sizeCorrBlock, countByteCorect int, byteBlock, corectBl
 	}
 	for j := 0; j < countByteCorect; j++ {
 		for _, v := range *corectBlock {
-			if v[j] != 0 {
+			if len(v) > j {
 				data[count] = v[j]
 				count++
 			}
