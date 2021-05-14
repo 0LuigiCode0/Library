@@ -241,16 +241,18 @@ func QRGenerate(content, imagePath, qrPath string, sizeImg float64) error {
 		blocks = &blocksH
 		byteCorect = &byteCorectH
 		levelCorrect = levelCorrectH
+	} else {
+		sizeImg = 0
 	}
 
 	//Перевод строки в двоичную последовательность
 	length, data := utfToBit(content)
 	//Выбор версии QR кода и длины системных данных
-	version, lenSystemData, err := howToVersion(length, maxData)
+	version, lenSystemData, err := howToVersion(sizeImg, length, maxData)
 	if err != nil {
 		return err
 	}
-	maxSizeGachi = int(math.Sqrt(float64((qrBlocks[version]*qrBlocks[version])-240-(len(coordAnchor[version])*25)-(qrBlocks[version]*2)) * sizeImg))
+	maxSizeGachi = sizeImage(sizeImg, version)
 	if maxSizeGachi%2 == 0 {
 		maxSizeGachi--
 	}
@@ -321,7 +323,7 @@ func utfToBit(content string) (length int, dataBit []int) {
 }
 
 //Выбор версии QR кода и длины системных данных
-func howToVersion(length int, maxData *[]int) (version int, lenSystemData int, err error) {
+func howToVersion(sizeImg float64, length int, maxData *[]int) (version int, lenSystemData int, err error) {
 	for i := 0; i < 40; i++ {
 		max := (*maxData)[i]
 		if length > max {
@@ -329,7 +331,7 @@ func howToVersion(length int, maxData *[]int) (version int, lenSystemData int, e
 		}
 		switch {
 		case i < 9:
-			if length+150 > max {
+			if length+sizeImage(sizeImg, i) > max {
 				i++
 				if i == 9 {
 					version = i
@@ -340,7 +342,7 @@ func howToVersion(length int, maxData *[]int) (version int, lenSystemData int, e
 			version = i
 			lenSystemData = 12
 		case i >= 9 && i < 26:
-			if length+300 > max {
+			if length+sizeImage(sizeImg, i) > max {
 				i++
 				if i == 26 {
 					version = i
@@ -351,7 +353,7 @@ func howToVersion(length int, maxData *[]int) (version int, lenSystemData int, e
 			version = i
 			lenSystemData = 20
 		case i >= 26 && i < 40:
-			if length+450 > max {
+			if length+sizeImage(sizeImg, i) > max {
 				i++
 				if i == 40 {
 					err = errors.New("data's oversize")
@@ -764,4 +766,11 @@ func paintGIF(size, maxSizeImg int, dataImg *[][]byte, image2 *gif.GIF) *gif.GIF
 	}
 
 	return image1
+}
+
+func sizeImage(sizeImg float64, version int) int {
+	if sizeImg > 0 {
+		return int(math.Sqrt(float64((qrBlocks[version]*qrBlocks[version])-240-(len(coordAnchor[version])*25)-(qrBlocks[version]*2)) * sizeImg))
+	}
+	return 0
 }
