@@ -329,7 +329,7 @@ func howToVersion(length int, maxData *[]int) (version int, lenSystemData int, e
 		}
 		switch {
 		case i < 9:
-			if length+92 > max {
+			if length+150 > max {
 				i++
 				if i == 9 {
 					version = i
@@ -340,7 +340,7 @@ func howToVersion(length int, maxData *[]int) (version int, lenSystemData int, e
 			version = i
 			lenSystemData = 12
 		case i >= 9 && i < 26:
-			if length+100 > max {
+			if length+300 > max {
 				i++
 				if i == 26 {
 					version = i
@@ -351,7 +351,7 @@ func howToVersion(length int, maxData *[]int) (version int, lenSystemData int, e
 			version = i
 			lenSystemData = 20
 		case i >= 26 && i < 40:
-			if length+100 > max {
+			if length+450 > max {
 				i++
 				if i == 40 {
 					err = errors.New("data's oversize")
